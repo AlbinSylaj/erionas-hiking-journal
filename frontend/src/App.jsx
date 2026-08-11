@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { deleteTrail, listTrails, saveTrail as saveStoredTrail } from './journalStorage'
 
 const emptyTrail = {
   name: '',
@@ -15,6 +16,23 @@ const difficultyLabel = {
   hard: 'Hard',
 }
 
+function TrailPhoto({ photo, name }) {
+  const [photoUrl, setPhotoUrl] = useState('')
+
+  useEffect(() => {
+    if (!photo) {
+      setPhotoUrl('')
+      return undefined
+    }
+
+    const objectUrl = URL.createObjectURL(photo)
+    setPhotoUrl(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [photo])
+
+  return photoUrl ? <img className="personal-trail-photo" src={photoUrl} alt={`Photo from ${name}`} /> : null
+}
+
 function App() {
   const [trails, setTrails] = useState([])
   const [form, setForm] = useState(emptyTrail)
@@ -27,27 +45,27 @@ function App() {
   const [isDiscovering, setIsDiscovering] = useState(false)
   const [locationSuggestions, setLocationSuggestions] = useState([])
   const [isLocationFocused, setIsLocationFocused] = useState(false)
-  const [status, setStatus] = useState('Loading trails...')
+  const [status, setStatus] = useState('Loading your journal...')
   const [isSaving, setIsSaving] = useState(false)
   const photoInput = useRef(null)
 
-  async function loadTrails(query = '') {
-    try {
-      const endpoint = query ? `/api/trails/?search=${encodeURIComponent(query)}` : '/api/trails/'
-      const response = await fetch(endpoint)
-      if (!response.ok) throw new Error('Could not load trails.')
-      const data = await response.json()
-      setTrails(data.trails)
-      setStatus('')
-    } catch (error) {
-      setStatus(error.message)
-    }
-  }
-
   useEffect(() => {
-    const searchTimer = setTimeout(() => loadTrails(search), 200)
-    return () => clearTimeout(searchTimer)
-  }, [search])
+    let isCurrent = true
+
+    listTrails()
+      .then((savedTrails) => {
+        if (!isCurrent) return
+        setTrails(savedTrails)
+        setStatus('')
+      })
+      .catch(() => {
+        if (isCurrent) setStatus('This browser could not open the private journal storage.')
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
 
   useEffect(() => {
     const query = discoveryLocation.trim()
@@ -55,16 +73,18 @@ function App() {
       setLocationSuggestions([])
       return undefined
     }
+
     const suggestionTimer = setTimeout(async () => {
       try {
-        const response = await fetch(`/api/locations/?query=${encodeURIComponent(query)}`)
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(query)}`)
         if (!response.ok) return
-        const data = await response.json()
-        setLocationSuggestions(data.locations)
+        const places = await response.json()
+        setLocationSuggestions(places.map((place) => ({ name: place.display_name })))
       } catch {
         setLocationSuggestions([])
       }
-    }, 250)
+    }, 350)
+
     return () => clearTimeout(suggestionTimer)
   }, [discoveryLocation])
 
@@ -73,45 +93,45 @@ function App() {
     setIsSaving(true)
     setStatus('')
     try {
-		const payload = new FormData()
-		Object.entries(form).forEach(([field, value]) => payload.append(field, value))
-		if (photoFile) payload.append('photo', photoFile)
-      const response = await fetch('/api/trails/', {
-        method: 'POST',
-		body: payload,
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Could not save the trail.')
-      setTrails((currentTrails) => [data, ...currentTrails])
+      const trail = {
+        ...form,
+        id: crypto.randomUUID(),
+        distance_km: Number(form.distance_km),
+        elevation_gain_m: Number(form.elevation_gain_m),
+        is_completed: false,
+        created_at: new Date().toISOString(),
+        photo: photoFile || null,
+      }
+      await saveStoredTrail(trail)
+      setTrails((currentTrails) => [trail, ...currentTrails])
       setForm(emptyTrail)
-  		setPhotoFile(null)
-  		if (photoInput.current) photoInput.current.value = ''
+      setPhotoFile(null)
+      if (photoInput.current) photoInput.current.value = ''
       setStatus('Trail added to your log.')
     } catch (error) {
-      setStatus(error.message)
+      setStatus('Could not save this trail on the device.')
     } finally {
       setIsSaving(false)
     }
   }
 
   async function updateTrail(trail, changes) {
-    const response = await fetch(`/api/trails/${trail.id}/`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...trail, ...changes }),
-    })
-    const data = await response.json()
-    if (!response.ok) throw new Error(data.error || 'Could not update the trail.')
-    setTrails((currentTrails) => currentTrails.map((item) => (item.id === trail.id ? data : item)))
+    const updatedTrail = { ...trail, ...changes }
+    try {
+      await saveStoredTrail(updatedTrail)
+      setTrails((currentTrails) => currentTrails.map((item) => (item.id === trail.id ? updatedTrail : item)))
+    } catch {
+      setStatus('Could not update this trail on the device.')
+    }
   }
 
   async function removeTrail(trail) {
-    const response = await fetch(`/api/trails/${trail.id}/`, { method: 'DELETE' })
-    if (!response.ok) {
-      setStatus('Could not remove the trail.')
-      return
+    try {
+      await deleteTrail(trail.id)
+      setTrails((currentTrails) => currentTrails.filter((item) => item.id !== trail.id))
+    } catch {
+      setStatus('Could not remove this trail from the device.')
     }
-    setTrails((currentTrails) => currentTrails.filter((item) => item.id !== trail.id))
   }
 
   async function discoverTrails(event) {
@@ -119,13 +139,35 @@ function App() {
     setIsDiscovering(true)
     setDiscoveryStatus('')
     try {
-      const response = await fetch(`/api/discover/?location=${encodeURIComponent(discoveryLocation)}&radius_km=25`)
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Could not discover trails.')
-      setDiscoveredTrails(data.trails)
-      setDiscoveryStatus(data.fallback ? `Live route data is busy. Showing a Google Maps search for ${data.location}.` : `${data.trails.length} public routes near ${data.location}`)
+      const placeResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(discoveryLocation)}`)
+      const [place] = await placeResponse.json()
+      if (!place) throw new Error('No matching place was found.')
+
+      const routeQuery = `[out:json][timeout:25];relation["route"="hiking"](around:25000,${place.lat},${place.lon});out tags;`
+      const routeResponse = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: `data=${encodeURIComponent(routeQuery)}`,
+      })
+      if (!routeResponse.ok) throw new Error('Public route data is busy.')
+
+      const data = await routeResponse.json()
+      const routes = data.elements
+        .filter((route) => route.tags?.name)
+        .slice(0, 12)
+        .map((route) => ({
+          id: route.id,
+          name: route.tags.name,
+          location: place.display_name,
+          difficulty: route.tags.sac_scale?.includes('demanding') ? 'hard' : route.tags.sac_scale ? 'moderate' : 'easy',
+          description: route.tags.description || route.tags.note || 'Public hiking route from OpenStreetMap.',
+          osm_url: `https://www.openstreetmap.org/relation/${route.id}`,
+        }))
+      setDiscoveredTrails(routes)
+      setDiscoveryStatus(routes.length ? `${routes.length} public routes near ${place.display_name}` : `No named hiking routes were found near ${place.display_name}.`)
     } catch (error) {
-      setDiscoveryStatus(error.message)
+      setDiscoveredTrails([])
+      setDiscoveryStatus(`${error.message} Try the Google Maps search below.`)
     } finally {
       setIsDiscovering(false)
     }
@@ -133,7 +175,11 @@ function App() {
 
   const completed = trails.filter((trail) => trail.is_completed).length
   const totalDistance = trails.reduce((sum, trail) => sum + Number(trail.distance_km), 0)
-  const visibleTrails = trails.filter((trail) => filter === 'all' || (filter === 'completed' ? trail.is_completed : !trail.is_completed))
+  const visibleTrails = trails.filter((trail) => {
+    const matchesFilter = filter === 'all' || (filter === 'completed' ? trail.is_completed : !trail.is_completed)
+    const searchableText = `${trail.name} ${trail.location} ${trail.description}`.toLowerCase()
+    return matchesFilter && searchableText.includes(search.trim().toLowerCase())
+  })
 
   return (
     <main>
@@ -164,9 +210,9 @@ function App() {
           <button className="primary-button" disabled={isDiscovering}>{isDiscovering ? 'Searching...' : 'Find trails'}</button>
         </form>
         {discoveryStatus && <p className="discovery-status" role="status">{discoveryStatus}</p>}
+        <a className="map-search-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${discoveryLocation} hiking trails`)}`} target="_blank" rel="noreferrer">Search nearby hikes in Google Maps</a>
         {discoveredTrails.length > 0 && <div className="discovery-results">
           {discoveredTrails.map((trail) => <article className="discovery-card" key={trail.id}>
-            {trail.photo ? <a href={trail.photo.source_url} target="_blank" rel="noreferrer"><img className="trail-photo" src={trail.photo.thumbnail_url} alt={`Photo for ${trail.name}`} /></a> : <div className="trail-photo unavailable">No photo found for this trail</div>}
             <span className="difficulty">Difficulty: {trail.difficulty}</span><h3>{trail.name}</h3><p>{trail.description}</p>
             <div className="route-links">
               <a href={`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${trail.name} ${trail.location} hike`)}`} target="_blank" rel="noreferrer">Find hike photos on Google</a>
@@ -211,7 +257,7 @@ function App() {
           <div className="trail-list">
             {visibleTrails.map((trail) => (
               <article className={trail.is_completed ? 'trail-card completed' : 'trail-card'} key={trail.id}>
-				{trail.photo_url && <img className="personal-trail-photo" src={trail.photo_url} alt={`Photo from ${trail.name}`} />}
+                <TrailPhoto photo={trail.photo} name={trail.name} />
                 <div className="trail-main">
                   <div className="trail-title"><span className={`difficulty ${trail.difficulty}`}>{difficultyLabel[trail.difficulty]}</span><h3>{trail.name}</h3></div>
                   <p className="location">{trail.location}</p>
