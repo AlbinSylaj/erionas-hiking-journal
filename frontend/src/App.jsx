@@ -47,7 +47,23 @@ function App() {
   const [isLocationFocused, setIsLocationFocused] = useState(false)
   const [status, setStatus] = useState('Loading your journal...')
   const [isSaving, setIsSaving] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState(null)
+  const [isInstalled, setIsInstalled] = useState(false)
+  const [showInstallHelp, setShowInstallHelp] = useState(false)
   const photoInput = useRef(null)
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+    setIsInstalled(Boolean(isStandalone))
+
+    function saveInstallPrompt(event) {
+      event.preventDefault()
+      setInstallPrompt(event)
+    }
+
+    window.addEventListener('beforeinstallprompt', saveInstallPrompt)
+    return () => window.removeEventListener('beforeinstallprompt', saveInstallPrompt)
+  }, [])
 
   useEffect(() => {
     let isCurrent = true
@@ -173,6 +189,18 @@ function App() {
     }
   }
 
+  async function installApp() {
+    if (installPrompt) {
+      await installPrompt.prompt()
+      const choice = await installPrompt.userChoice
+      setInstallPrompt(null)
+      if (choice.outcome === 'accepted') setIsInstalled(true)
+      return
+    }
+
+    setShowInstallHelp((isVisible) => !isVisible)
+  }
+
   const completed = trails.filter((trail) => trail.is_completed).length
   const totalDistance = trails.reduce((sum, trail) => sum + Number(trail.distance_km), 0)
   const visibleTrails = trails.filter((trail) => {
@@ -188,6 +216,14 @@ function App() {
           <p className="eyebrow">Eriona's personal hiking journal</p>
           <h1>Trail Log</h1>
           <p className="intro">Remember to keep away from avalanches, don't just stare and record them</p>
+          <div className="install-area">
+            <button className="install-button" type="button" onClick={installApp} disabled={isInstalled}>{isInstalled ? 'App installed' : 'Install app'}</button>
+            {showInstallHelp && !isInstalled && <div className="install-help" role="status">
+              <strong>Install Trail Log</strong>
+              <p>On iPhone: open this site in Safari, tap Share, then choose Add to Home Screen.</p>
+              <p>On Android or desktop: use the browser menu and choose Install app.</p>
+            </div>}
+          </div>
         </div>
         <div className="summit-mark" aria-hidden="true">TL</div>
       </section>

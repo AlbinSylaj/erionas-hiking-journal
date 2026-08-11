@@ -13,6 +13,7 @@ h1, h2, h3, p { margin-top: 0; }
 h1, h2, h3 { font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing: 0; }
 h1 { font-size: clamp(48px, 7vw, 82px); line-height: .95; margin-bottom: 13px; }
 .intro { max-width: 400px; margin-bottom: 0; font-size: 16px; line-height: 1.55; }
+.install-area { position: relative; margin-top: 22px; }.install-button { min-height: 42px; padding: 10px 14px; color: #fbf8ee; background: transparent; border: 1px solid rgb(251 248 238 / .72); font: 500 11px 'DM Mono', monospace; text-transform: uppercase; }.install-button:hover { color: #173b34; background: #e5a840; border-color: #e5a840; }.install-button:disabled { cursor: default; opacity: .7; }.install-help { position: absolute; z-index: 3; top: calc(100% + 10px); left: 0; width: min(340px, calc(100vw - 50px)); padding: 14px; color: #15332e; background: #fbf8ee; border-left: 3px solid #e5a840; box-shadow: 0 9px 24px rgb(0 0 0 / .18); font-size: 13px; line-height: 1.45; }.install-help strong { display: block; margin-bottom: 6px; font: 600 16px Fraunces, Georgia, serif; }.install-help p { margin: 0 0 8px; }.install-help p:last-child { margin-bottom: 0; }
 .summit-mark { width: 70px; height: 70px; display: grid; place-items: center; border: 1px solid rgb(251 248 238 / .65); font: 500 16px 'DM Mono', monospace; }
 .metrics { display: grid; grid-template-columns: repeat(3, 1fr); background: #e5a840; color: #173b34; }
 .metrics div { padding: 21px clamp(18px, 3vw, 46px); border-right: 1px solid rgb(21 51 46 / .3); }
