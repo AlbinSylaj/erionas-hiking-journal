@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: trail-log
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt && npm --prefix frontend install && npm --prefix frontend run build && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate --noinput && gunicorn config.wsgi:application
+    disk:
+      name: trail-log-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
+      - key: PERSISTENT_STORAGE_PATH
+        value: "/var/data"
+      - key: NODE_VERSION
+        value: "22"
+      - key: SERPAPI_API_KEY
+        sync: false
