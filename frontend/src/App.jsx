@@ -201,7 +201,8 @@ function App() {
     setShowInstallHelp((isVisible) => !isVisible)
   }
 
-  const completed = trails.filter((trail) => trail.is_completed).length
+  const completedTrails = trails.filter((trail) => trail.is_completed)
+  const completed = completedTrails.length
   const totalDistance = trails.reduce((sum, trail) => sum + Number(trail.distance_km), 0)
   const visibleTrails = trails.filter((trail) => {
     const matchesFilter = filter === 'all' || (filter === 'completed' ? trail.is_completed : !trail.is_completed)
@@ -261,10 +262,11 @@ function App() {
       </section>
 
       <section className="workspace">
-        <form className="trail-form" onSubmit={saveTrail}>
+        <form className="trail-form" id="add-hike" onSubmit={saveTrail}>
           <div className="section-heading">
-            <p className="eyebrow">New route</p>
-            <h2>Add a trail</h2>
+            <p className="eyebrow">My hikes</p>
+            <h2>Add to my hikes</h2>
+            <p className="section-description">Save a hike you have completed or want to remember.</p>
           </div>
           <label>Trail name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Eagle Ridge Loop" /></label>
           <label>Location<input required value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="Park, region, or trailhead" /></label>
@@ -275,12 +277,12 @@ function App() {
           <label>Difficulty<select value={form.difficulty} onChange={(event) => setForm({ ...form, difficulty: event.target.value })}><option value="easy">Easy</option><option value="moderate">Moderate</option><option value="hard">Hard</option></select></label>
           <label>Notes<textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Conditions, viewpoint, or a note for next time." rows="3" /></label>
           <label className="photo-input">Trail photo<input ref={photoInput} type="file" accept="image/*" onChange={(event) => setPhotoFile(event.target.files?.[0] || null)} /><span>{photoFile ? photoFile.name : 'Choose a photo from your iPhone Photos library or take a new one'}</span></label>
-          <button className="primary-button" disabled={isSaving}>{isSaving ? 'Adding...' : 'Add trail'}</button>
+          <button className="primary-button" disabled={isSaving}>{isSaving ? 'Adding...' : 'Save to my hikes'}</button>
         </form>
 
         <div className="trail-list-section">
           <div className="list-topline">
-            <div className="section-heading"><p className="eyebrow">Your routes</p><h2>Trail collection</h2></div>
+            <div className="section-heading"><h2>My hikes</h2></div>
             <div className="filter-group" aria-label="Trail filter">
               {['all', 'planned', 'completed'].map((option) => <button key={option} className={filter === option ? 'filter active' : 'filter'} onClick={() => setFilter(option)}>{option}</button>)}
             </div>
@@ -306,7 +308,7 @@ function App() {
                 </div>
               </article>
             ))}
-            {!status && visibleTrails.length === 0 && <div className="empty-state"><p>No trails here yet.</p><span>Add one from a place you want to explore.</span></div>}
+            {!status && visibleTrails.length === 0 && <div className="empty-state"><p>No trails in your history yet.</p><span>Add a past hike or a trail you want to remember.</span></div>}
           </div>
         </div>
       </section>

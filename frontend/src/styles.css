@@ -22,6 +22,7 @@ h1 { font-size: clamp(48px, 7vw, 82px); line-height: .95; margin-bottom: 13px; }
 .workspace { display: grid; grid-template-columns: minmax(270px, .8fr) minmax(0, 1.7fr); gap: 52px; padding: 58px clamp(0px, 4vw, 48px) 72px; }
 .trail-form { align-self: start; padding: 28px; background: #f9f8f0; border-top: 4px solid #e5a840; box-shadow: 0 13px 27px rgb(21 51 46 / .08); }
 h2 { font-size: 28px; line-height: 1.1; margin-bottom: 25px; }.trail-form label { display: block; margin-bottom: 17px; color: #28564a; font-size: 12px; font-weight: 700; }
+.section-description { margin: -13px 0 24px; color: #587269; font-size: 13px; line-height: 1.45; }
 input, select, textarea { display: block; width: 100%; margin-top: 7px; padding: 10px 0; color: #15332e; background: transparent; border: 0; border-bottom: 1px solid #a7b7a6; border-radius: 0; outline: 0; font-size: 16px; } input:focus, select:focus, textarea:focus { border-color: #e5a840; }
 textarea { resize: vertical; }.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }
 .photo-input input { padding: 10px 0; }.photo-input span { display: block; margin-top: 7px; color: #587269; font-size: 12px; font-weight: 500; }.primary-button { width: 100%; min-height: 44px; padding: 13px; color: #fbf8ee; background: #173b34; border: 0; font-weight: 700; }.primary-button:hover { background: #28564a; }.primary-button:disabled { opacity: .65; cursor: wait; }
